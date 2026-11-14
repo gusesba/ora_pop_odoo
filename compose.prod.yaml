@@ -1,0 +1,34 @@
+services:
+  odoo:
+    command:
+      - odoo
+      - --proxy-mode
+      - --no-database-list
+      - --workers=2
+      - --max-cron-threads=1
+      - --limit-memory-soft=536870912
+      - --limit-memory-hard=805306368
+
+  proxy:
+    image: ${CADDY_IMAGE:?Defina CADDY_IMAGE no arquivo .env}
+    restart: unless-stopped
+    depends_on:
+      - odoo
+    environment:
+      ODOO_DOMAIN: ${ODOO_DOMAIN:?Defina ODOO_DOMAIN no arquivo .env}
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./config/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  caddy-data:
+  caddy-config:

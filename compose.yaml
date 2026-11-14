@@ -1,0 +1,57 @@
+name: ora-pop-odoo
+
+services:
+  db:
+    image: ${POSTGRES_IMAGE:?Defina POSTGRES_IMAGE no arquivo .env}
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: postgres
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${DB_ADMIN_PASSWORD:?Defina DB_ADMIN_PASSWORD no arquivo .env}
+      ODOO_DB_PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no arquivo .env}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./config/postgres-init.sh:/docker-entrypoint-initdb.d/odoo.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  odoo:
+    image: ${ODOO_IMAGE:?Defina ODOO_IMAGE no arquivo .env}
+    restart: unless-stopped
+    stop_grace_period: 60s
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      HOST: db
+      PORT: "5432"
+      USER: odoo
+      PASSWORD: ${DB_PASSWORD:?Defina DB_PASSWORD no arquivo .env}
+    ports:
+      - "127.0.0.1:${ODOO_PORT:-8070}:8069"
+    volumes:
+      - odoo-data:/var/lib/odoo
+      - type: bind
+        source: ./config/odoo.local.conf
+        target: /etc/odoo/odoo.conf
+        bind:
+          create_host_path: false
+      - ./custom-addons:/mnt/extra-addons:ro
+      - ./oca:/mnt/oca:ro
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres-data:
+  odoo-data:
